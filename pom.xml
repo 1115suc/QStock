@@ -8,6 +8,7 @@
     <artifactId>QStock</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
+
     <modules>
         <module>QStock-common</module>
         <module>QStock-backend</module>

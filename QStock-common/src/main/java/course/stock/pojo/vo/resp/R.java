@@ -1,4 +1,4 @@
-package course.stock.pojo.vo;
+package course.stock.pojo.vo.resp;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

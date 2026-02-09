@@ -1,14 +1,18 @@
 # web定义
 server:
   port: 8091
-
+application:
+  version: 1.0.0
+  name: 青析智股
 spring:
+  profiles:
+    active: stock
   # 配置mysql数据源
   datasource:
     druid:
       username: root
       password:
-      url: jdbc:mysql://localhost:3306/QStock?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useSSL=false&serverTimezone=Asia/Shanghai
+      url: jdbc:mysql://127.0.0.1:3306/QStock?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useSSL=false&serverTimezone=Asia/Shanghai
       driver-class-name: com.mysql.jdbc.Driver
       # 初始化时建立物理连接的个数。初始化发生在显示调用 init 方法，或者第一次 getConnection 时
       initialSize: 6
@@ -19,7 +23,21 @@ spring:
       # 获取连接时最大等待时间，单位毫秒。配置了 maxWait 之后，缺省启用公平锁，
       # 并发效率会有所下降，如果需要可以通过配置 useUnfairLock 属性为 true 使用非公平锁。
       maxWait: 60000
-
+  # 配置缓存
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    database: 0 #Redis数据库索引（默认为0）
+    lettuce:
+      pool:
+        max-active: 8 # 连接池最大连接数（使用负值表示没有限制）
+        max-wait: -1ms # 连接池最大阻塞等待时间（使用负值表示没有限制）
+        max-idle: 8 # 连接池中的最大空闲连接
+        min-idle: 1  # 连接池中的最小空闲连接
+    timeout: PT10S # 连接超时时间
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 # 配置mybatis
 mybatis:
   type-aliases-package: course.QStock.pojo
@@ -30,3 +48,13 @@ mybatis:
 pagehelper:
   helper-dialect: mysql #指定分页数据库类型（方言）
   reasonable: true #合理查询超过最大页，则查询最后一页
+
+qstock:
+  swagger:
+    package-path: course.stock.controller
+    title: QStock - 青析智股服务接口文档
+    description: 该服务提供股票查询、股票交易等功能。
+    contact-name: ${application.name}
+    contact-url: www.QStock.com
+    contact-email: 1115suc@gmail.com
+    version: ${application.version}
