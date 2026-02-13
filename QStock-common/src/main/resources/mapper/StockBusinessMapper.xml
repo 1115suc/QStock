@@ -25,7 +25,9 @@
     </select>
 
     <select id="findAll" resultType="course.stock.pojo.entity.StockBusiness">
-
+        select
+        <include refid="Base_Column_List" />
+        from stock_business
     </select>
 
     <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">

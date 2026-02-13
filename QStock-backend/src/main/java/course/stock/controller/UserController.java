@@ -18,7 +18,7 @@ import java.util.Map;
 @Slf4j
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/user")
 public class UserController {
 
     private final UserService userService;
@@ -28,7 +28,7 @@ public class UserController {
             @ApiImplicitParam(paramType = "body", dataType = "LoginReqVo", name = "vo", value = "", required = true)
     })
     @ApiOperation(value = "用户登录功能实现", notes = "用户登录功能实现", httpMethod = "POST")
-    @PostMapping("/login")
+    @PostMapping()
     public R<LoginRespVo> login(@RequestBody LoginReqVo vo){
         R<LoginRespVo> r= this.userService.login(vo);
         return r;
@@ -36,7 +36,7 @@ public class UserController {
 
     // 生成登录校验码的访问接口
     @ApiOperation(value = "生成登录校验码的访问接口", notes = "生成登录校验码的访问接口", httpMethod = "GET")
-    @GetMapping("/captcha")
+    @GetMapping()
     public R<Map> getCaptchaCode(){
         return userService.getCaptchaCode();
     }
