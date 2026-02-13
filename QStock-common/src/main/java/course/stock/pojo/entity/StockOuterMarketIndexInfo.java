@@ -2,6 +2,8 @@ package course.stock.pojo.entity;
 
 import java.math.BigDecimal;
 import java.util.Date;
+
+import lombok.Builder;
 import lombok.Data;
 
 /**
@@ -9,6 +11,7 @@ import lombok.Data;
  * @TableName stock_outer_market_index_info
  */
 @Data
+@Builder
 public class StockOuterMarketIndexInfo {
     /**
      * 主键ID

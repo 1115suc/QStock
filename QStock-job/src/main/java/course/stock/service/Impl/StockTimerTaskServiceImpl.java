@@ -1,0 +1,152 @@
+package course.stock.service.Impl;
+
+import com.google.common.collect.Lists;
+import course.stock.config.StockInfoConfig;
+import course.stock.constant.ParseType;
+import course.stock.mapper.StockBusinessMapper;
+import course.stock.mapper.StockMarketIndexInfoMapper;
+import course.stock.mapper.StockRtInfoMapper;
+import course.stock.pojo.entity.StockMarketIndexInfo;
+import course.stock.pojo.entity.StockRtInfo;
+import course.stock.service.StockTimerTaskService;
+import course.stock.util.DateTimeUtil;
+import course.stock.util.IdWorker;
+import course.stock.util.ParserStockInfoUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+import org.springframework.web.client.RestTemplate;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service("stockTimerTaskService")
+@RequiredArgsConstructor
+public class StockTimerTaskServiceImpl implements StockTimerTaskService {
+
+    private final IdWorker idWorker;
+    private final RestTemplate restTemplate;
+    private final StockInfoConfig stockInfoConfig;
+    private final ParserStockInfoUtil parserStockInfoUtil;
+    private final RabbitTemplate rabbitTemplate;
+    private final StockRtInfoMapper stockRtInfoMapper;
+    private final StockBusinessMapper stockBusinessMapper;
+    private final StockMarketIndexInfoMapper stockMarketIndexInfoMapper;
+
+    @Override
+    public void getInnerMarketInfo() {
+        //1.定义采集的url接口
+        String url=stockInfoConfig.getMarketUrl() + String.join(",",stockInfoConfig.getInner());
+        //2.调用restTemplate采集数据
+        //2.1 组装请求头
+        HttpHeaders headers = new HttpHeaders();
+        //必须填写，否则数据采集不到
+        headers.add("Referer","https://finance.sina.com.cn/stock/");
+        headers.add("User-Agent","Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36");
+        //2.2 组装请求对象
+        HttpEntity<Object> entity = new HttpEntity<>(headers);
+        //2.3 resetTemplate发起请求
+        String resString = restTemplate.postForObject(url, entity, String.class);
+        //3.数据解析（重要）
+//        var hq_str_sh000001="上证指数,3267.8103,3283.4261,3236.6951,3290.2561,3236.4791,0,0,402626660,398081845473,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2022-04-07,15:01:09,00,";
+//        var hq_str_sz399001="深证成指,12101.371,12172.911,11972.023,12205.097,11971.334,0.000,0.000,47857870369,524892592190.995,0,0.000,0,0.000,0,0.000,0,0.000,0,0.000,0,0.000,0,0.000,0,0.000,0,0.000,0,0.000,2022-04-07,15:00:03,00";
+        String reg="var hq_str_(.+)=\"(.+)\";";
+        //编译表达式,获取编译对象
+        Pattern pattern = Pattern.compile(reg);
+        //匹配字符串
+        Matcher matcher = pattern.matcher(resString);
+        ArrayList<StockMarketIndexInfo> list = new ArrayList<>();
+        //判断是否有匹配的数值
+        while (matcher.find()){
+            //获取大盘的code
+            String marketCode = matcher.group(1);
+            //获取其它信息，字符串以逗号间隔
+            String otherInfo=matcher.group(2);
+            //以逗号切割字符串，形成数组
+            String[] splitArr = otherInfo.split(",");
+            //大盘名称
+            String marketName=splitArr[0];
+            //获取当前大盘的开盘点数
+            BigDecimal openPoint=new BigDecimal(splitArr[1]);
+            //前收盘点
+            BigDecimal preClosePoint=new BigDecimal(splitArr[2]);
+            //获取大盘的当前点数
+            BigDecimal curPoint=new BigDecimal(splitArr[3]);
+            //获取大盘最高点
+            BigDecimal maxPoint=new BigDecimal(splitArr[4]);
+            //获取大盘的最低点
+            BigDecimal minPoint=new BigDecimal(splitArr[5]);
+            //获取成交量
+            Long tradeAmt=Long.valueOf(splitArr[8]);
+            //获取成交金额
+            BigDecimal tradeVol=new BigDecimal(splitArr[9]);
+            //时间
+            Date curTime = DateTimeUtil.getDateTimeWithoutSecond(splitArr[30] + " " + splitArr[31]).toDate();
+            //组装entity对象
+            StockMarketIndexInfo info = StockMarketIndexInfo.builder()
+                    .id(idWorker.nextId())
+                    .marketCode(marketCode)
+                    .marketName(marketName)
+                    .curPoint(curPoint)
+                    .openPoint(openPoint)
+                    .preClosePoint(preClosePoint)
+                    .maxPoint(maxPoint)
+                    .minPoint(minPoint)
+                    .tradeVolume(tradeVol)
+                    .tradeAmount(tradeAmt)
+                    .curTime(curTime)
+                    .build();
+            //收集封装的对象，方便批量插入
+            list.add(info);
+        }
+       log.info("采集的当前大盘数据：{}",list);
+        //批量插入
+        if (CollectionUtils.isEmpty(list)) {
+            log.warn("当前采集的大盘数据为空，无法批量插入");
+        }
+        //批量插入
+        int count = this.stockMarketIndexInfoMapper.insertBatch(list);
+        log.info("批量插入了：{}条数据",count);
+    }
+
+    @Override
+    public void getStockRtIndex() {
+        //批量获取股票ID集合
+        List<String> stockIds = stockBusinessMapper.getStockIds();
+        //计算出符合sina命名规范的股票id数据
+        stockIds = stockIds.stream().map(id -> {
+            return id.startsWith("6") ? "sh" + id : "sz" + id;
+        }).collect(Collectors.toList());
+        //设置公共请求头对象
+        //设置请求头数据
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Referer","https://finance.sina.com.cn/stock/");
+        headers.add("User-Agent","Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36");
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        //一次性查询过多，我们将需要查询的数据先进行分片处理，每次最多查询20条股票数据
+        Lists.partition(stockIds,20).forEach(list->{
+            //拼接股票url地址
+            String stockUrl=stockInfoConfig.getMarketUrl()+String.join(",",list);
+            //获取响应数据
+            String result = restTemplate.postForObject(stockUrl,entity,String.class);
+            List<StockRtInfo> infos = parserStockInfoUtil.parser4StockOrMarketInfo(result, ParseType.ASHARE);
+            log.info("数据量：{}",infos.size());
+            //TODO 批量插入
+            int count = stockRtInfoMapper.insertBatch(infos);
+            log.info("批量插入了：{}条数据",count);
+            //通知后台终端刷新本地缓存，发送的日期数据是告知对方当前更新的股票数据所在时间点
+            rabbitTemplate.convertAndSend("QStockExchange","inner.market",new Date());
+        });
+    }
+}
