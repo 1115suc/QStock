@@ -6,7 +6,7 @@ application:
   name: 青析智股
 spring:
   profiles:
-    active: stock
+    active: stock,mq
   # 配置mysql数据源
   datasource:
     druid:
@@ -58,3 +58,11 @@ qstock:
     contact-url: www.QStock.com
     contact-email: 1115suc@gmail.com
     version: ${application.version}
+
+# 定时任务线程池基础参数
+task:
+  pool:
+    corePoolSize: 5 # 核心线程数
+    maxPoolSize: 10 # 设置最大线程数
+    keepAliveSeconds: 2 # 设置线程活跃时间,单位秒
+    queueCapacity: 10 # 设置队列容量

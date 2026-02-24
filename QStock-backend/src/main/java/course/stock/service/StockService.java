@@ -33,4 +33,6 @@ public interface StockService {
     R<List<Stock4MinuteDomain>> stockScreenTimeSharing(String code);
     // 单个个股日K 数据查询 ，可以根据时间区间查询数日的K线数据
     R<List<Stock4EvrDayDomain>> stockCreenDkLine(String code);
+    // 获取国内A股大盘所有股票的最新数据
+    public R<List<InnerMarketDomain>> getInnnerMarketInfos();
 }

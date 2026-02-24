@@ -2,6 +2,7 @@ package course.stock.controller;
 
 import course.stock.constant.ResponseConstant;
 import course.stock.pojo.domain.InnerMarketDomain;
+import course.stock.pojo.domain.Stock4EvrDayDomain;
 import course.stock.pojo.domain.Stock4MinuteDomain;
 import course.stock.pojo.domain.StockBlockDomain;
 import course.stock.pojo.entity.StockBusiness;
@@ -113,7 +114,7 @@ public class StockController {
     // 单个个股日K 数据查询 ，可以根据时间区间查询数日的K线数据
     @ApiOperation(value = "单个个股日K 数据查询", notes = "单个个股日K 数据查询 ，可以根据时间区间查询数日的K线数据", httpMethod = "GET")
     @RequestMapping("/stock/screen/dkline")
-    public R<List<Map>> getDayKLinData(@RequestParam("code") String stockCode){
+    public R<List<Stock4EvrDayDomain>> getDayKLinData(@RequestParam("code") String stockCode){
         return stockService.stockCreenDkLine(stockCode);
     }
 }
